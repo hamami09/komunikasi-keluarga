@@ -5,70 +5,133 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Komunikasi Rumah & HP</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f4f6f9; }
-        .card { background: white; max-width: 500px; margin: auto; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        button { padding: 12px 20px; font-size: 16px; margin: 10px 5px; border: none; border-radius: 8px; cursor: pointer; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 15px; background: #eef2f5; }
+        .card { background: white; max-width: 480px; margin: auto; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { margin-bottom: 5px; color: #333; }
+        .role-selector { margin-bottom: 15px; }
+        .role-btn { padding: 8px 15px; font-size: 14px; margin: 0 4px; border: 1px solid #007bff; border-radius: 6px; background: #fff; cursor: pointer; }
+        .role-active { background: #007bff; color: white; }
+        .chat-box { height: 260px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; text-align: left; padding: 12px; margin-bottom: 15px; background: #fafafa; }
+        .msg { margin: 8px 0; padding: 8px 12px; border-radius: 8px; max-width: 80%; word-wrap: break-word; }
+        .msg-hp { background: #dcf8c6; margin-left: auto; text-align: right; }
+        .msg-pc { background: #e3f2fd; margin-right: auto; text-align: left; }
+        textarea { width: 93%; height: 60px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; resize: none; }
+        button { padding: 12px 18px; font-size: 15px; font-weight: bold; margin: 8px 4px; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
         .btn-send { background: #28a745; color: white; }
         .btn-mic { background: #007bff; color: white; }
-        textarea { width: 90%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
-        .chat-box { height: 200px; overflow-y: scroll; border: 1px solid #eee; text-align: left; padding: 10px; margin-bottom: 10px; background: #fafafa; }
-        .msg-hp { color: green; font-weight: bold; }
-        .msg-pc { color: blue; font-weight: bold; }
+        .btn-send:hover { background: #218838; }
+        .btn-mic:hover { background: #0069d9; }
     </style>
+
+    <!-- Modul Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        // KONFIGURASI FIREBASE KAMU
+        const firebaseConfig = {
+            apiKey: "AIzaSyDk9wA1J-wVkDmA_mTeBGHr7ddRS28QMpY",
+            authDomain: "project-7328d8f0-f888-4ae1-809.firebaseapp.com",
+            databaseURL: "https://project-7328d8f0-f888-4ae1-809-default-rtdb.firebaseio.com",
+            projectId: "project-7328d8f0-f888-4ae1-809",
+            storageBucket: "project-7328d8f0-f888-4ae1-809.firebasestorage.app",
+            messagingSenderId: "676587031700",
+            appId: "1:676587031700:web:46343edb093539ab7b7881",
+            measurementId: "G-K0L42TXNZL"
+        };
+
+        // Inisialisasi Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const messagesRef = ref(database, 'messages');
+
+        let currentRole = "HP"; // Default perangkat
+
+        window.setRole = function(role) {
+            currentRole = role;
+            document.getElementById('btnHP').classList.toggle('role-active', role === 'HP');
+            document.getElementById('btnPC').classList.toggle('role-active', role === 'PC');
+            alert("Perangkat ini diatur sebagai: " + role);
+        };
+
+        // Kirim Pesan ke Firebase
+        window.sendMessage = function() {
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            if (!text) return;
+
+            push(messagesRef, {
+                sender: currentRole,
+                text: text,
+                timestamp: Date.now()
+            });
+
+            input.value = '';
+        };
+
+        // Mendengarkan Pesan Masuk secara Realtime
+        onChildAdded(messagesRef, (snapshot) => {
+            const data = snapshot.val();
+            const chatBox = document.getElementById('chatBox');
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `msg ${data.sender === 'HP' ? 'msg-hp' : 'msg-pc'}`;
+            msgDiv.innerHTML = `<b>${data.sender}:</b> ${data.text}`;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Jika pesan dikirim oleh perangkat LAIN, browser membacakannya keras-keras
+            if (data.sender !== currentRole) {
+                speakText(data.text);
+            }
+        });
+
+        // Teks ke Suara (Text-to-Speech)
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'id-ID';
+                utterance.rate = 1;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // Suara ke Teks (Voice-to-Text)
+        window.startVoiceRecognition = function() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Browser tidak mendukung pengenalan suara. Gunakan Google Chrome.");
+                return;
+            }
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'id-ID';
+            recognition.start();
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('messageInput').value = transcript;
+                window.sendMessage(); // Otomatis terkirim setelah selesai bicara
+            };
+        };
+    </script>
 </head>
 <body>
 
 <div class="card">
-    <h2>Pusat Komunikasi Keluarga</h2>
+    <h2>Komunikasi Rumah</h2>
+    <div class="role-selector">
+        <label>Perangkat ini sebagai: </label><br><br>
+        <button id="btnHP" class="role-btn role-active" onclick="setRole('HP')">📱 HP (Kamu)</button>
+        <button id="btnPC" class="role-btn" onclick="setRole('PC')">💻 PC (Rumah)</button>
+    </div>
     
-    <!-- Kotak Chat -->
     <div class="chat-box" id="chatBox"></div>
 
-    <!-- Area Kirim Teks -->
-    <textarea id="messageInput" placeholder="Ketik pesan di sini..."></textarea><br>
+    <textarea id="messageInput" placeholder="Ketik pesan atau tekan tombol bicara..."></textarea><br>
     <button class="btn-send" onclick="sendMessage()">Kirim Pesan</button>
-    <button class="btn-mic" onclick="startVoiceRecognition()">🎤 Bicara (Voice Note)</button>
+    <button class="btn-mic" onclick="startVoiceRecognition()">🎤 Bicara (Suara)</button>
 </div>
-
-<script>
-    // 1. Fitur Suara ke Teks (Untuk PC ke HP atau sebaliknya)
-    function startVoiceRecognition() {
-        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-        recognition.lang = 'id-ID';
-        recognition.start();
-
-        recognition.onresult = function(event) {
-            const transcript = event.results[0][0].transcript;
-            document.getElementById('messageInput').value = transcript;
-            sendMessage(); // Langsung kirim setelah selesai bicara
-        };
-    }
-
-    // 2. Fitur Teks ke Suara (PC membacakan pesan dari HP)
-    function speakText(text) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'id-ID';
-        utterance.pitch = 1;
-        utterance.rate = 1;
-        window.speechSynthesis.speak(utterance);
-    }
-
-    // 3. Simulasi Kirim Pesan (Nanti dihubungkan ke Firebase/Server)
-    function sendMessage() {
-        const input = document.getElementById('messageInput');
-        const text = input.value;
-        if (!text) return;
-
-        const chatBox = document.getElementById('chatBox');
-        chatBox.innerHTML += `<p class="msg-hp"><b>Pesan Sent:</b> ${text}</p>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-        
-        // Membunyikan suara di penerima
-        speakText(text);
-
-        input.value = '';
-    }
-</script>
 
 </body>
 </html>
