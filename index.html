@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBROLAN KELUARGA BAHAGIA</title>
+    <title>Komunikasi Rumah & HP</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 15px; background: #eef2f5; }
         .card { background: white; max-width: 480px; margin: auto; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -65,6 +65,7 @@
                 sender: currentRole,
                 text: text,
                 type: 'text',
+                isVoiceCommand: false, // Default: bukan perintah suara
                 timestamp: Date.now()
             });
 
@@ -96,6 +97,7 @@
                         sender: currentRole,
                         imageUrl: compressedBase64,
                         type: 'image',
+                        isVoiceCommand: false,
                         timestamp: Date.now()
                     });
                 };
@@ -104,7 +106,7 @@
             reader.readAsDataURL(file);
         };
 
-        // Hapus Semua Pesan dari Firebase
+        // Hapus Semua Pesan
         window.clearChat = function() {
             if (confirm("Apakah Anda yakin ingin menghapus semua riwayat pesan?")) {
                 remove(messagesRef)
@@ -118,7 +120,7 @@
             }
         };
 
-        // Pantau Perubahan Data (Termasuk jika data dihapus)
+        // Pantau jika data dihapus
         onValue(messagesRef, (snapshot) => {
             if (!snapshot.exists()) {
                 document.getElementById('chatBox').innerHTML = '';
@@ -142,12 +144,9 @@
             chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
 
-            if (data.sender !== currentRole) {
-                if (data.type === 'image') {
-                    speakText(data.sender + " mengirimkan gambar.");
-                } else {
-                    speakText(data.text);
-                }
+            // HANYA membacakan suara jika dikirim lewat tombol 🎤 Suara
+            if (data.sender !== currentRole && data.isVoiceCommand) {
+                speakText(data.text);
             }
         });
 
@@ -161,6 +160,7 @@
             }
         }
 
+        // Fitur 🎤 Suara: Mengirim teks SERTA menandainya untuk DIBACAKAN SUARA
         window.startVoiceRecognition = function() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
@@ -173,8 +173,15 @@
 
             recognition.onresult = function(event) {
                 const transcript = event.results[0][0].transcript;
-                document.getElementById('messageInput').value = transcript;
-                window.sendMessage();
+                if (!transcript) return;
+
+                push(messagesRef, {
+                    sender: currentRole,
+                    text: transcript,
+                    type: 'text',
+                    isVoiceCommand: true, // Ditandai agar DIBACAKAN SUARA di perangkat penerima
+                    timestamp: Date.now()
+                });
             };
         };
     </script>
@@ -191,13 +198,12 @@
     <div class="chat-box" id="chatBox"></div>
 
     <textarea id="messageInput" placeholder="Ketik pesan..."></textarea><br>
-    <button class="btn-send" onclick="sendMessage()">Kirim Pesan</button>
-    <button class="btn-mic" onclick="startVoiceRecognition()">🎤 Suara</button>
+    <button class="btn-send" onclick="sendMessage()">Kirim Pesan (Teks Biasa)</button>
+    <button class="btn-mic" onclick="startVoiceRecognition()">🎤 Kirim Perintah Suara</button>
     
     <button class="btn-img" onclick="document.getElementById('fileInput').click()">📷 Kirim Foto</button>
     <input type="file" id="fileInput" accept="image/*" onchange="uploadImage(event)">
 
-    <!-- Tombol Hapus Chat -->
     <br>
     <button class="btn-clear" onclick="clearChat()">🗑️ Hapus Semua Riwayat Chat</button>
 </div>
