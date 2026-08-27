@@ -189,19 +189,19 @@
 <body>
 
 <div class="card">
-    <h2>Komunikasi Rumah</h2>
+    <h2>Obrolah Keluarga</h2>
     <div class="role-selector">
-        <button id="btnHP" class="role-btn role-active" onclick="setRole('HP')">📱 HP (Kamu)</button>
-        <button id="btnPC" class="role-btn" onclick="setRole('PC')">💻 PC (Rumah)</button>
+        <button id="btnHP" class="role-btn role-active" onclick="setRole('HP')">📱 HP (Ayah)</button>
+        <button id="btnPC" class="role-btn" onclick="setRole('PC')">💻 PC (Mamah)</button>
     </div>
     
     <div class="chat-box" id="chatBox"></div>
 
     <textarea id="messageInput" placeholder="Ketik pesan..."></textarea><br>
-    <button class="btn-send" onclick="sendMessage()">Kirim Pesan (Teks Biasa)</button>
-    <button class="btn-mic" onclick="startVoiceRecognition()">🎤 Kirim Perintah Suara</button>
+    <button class="btn-send" onclick="sendMessage()">Kirim Pesan</button>
+    <button class="btn-mic" onclick="startVoiceRecognition()">Kirim Suara</button>
     
-    <button class="btn-img" onclick="document.getElementById('fileInput').click()">📷 Kirim Foto</button>
+    <button class="btn-img" onclick="document.getElementById('fileInput').click()">Kirim Foto</button>
     <input type="file" id="fileInput" accept="image/*" onchange="uploadImage(event)">
 
     <br>
