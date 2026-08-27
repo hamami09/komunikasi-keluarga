@@ -11,19 +11,20 @@
         .role-selector { margin-bottom: 15px; }
         .role-btn { padding: 8px 15px; font-size: 14px; margin: 0 4px; border: 1px solid #007bff; border-radius: 6px; background: #fff; cursor: pointer; }
         .role-active { background: #007bff; color: white; }
-        .chat-box { height: 260px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; text-align: left; padding: 12px; margin-bottom: 15px; background: #fafafa; }
+        .chat-box { height: 280px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px; text-align: left; padding: 12px; margin-bottom: 15px; background: #fafafa; }
         .msg { margin: 8px 0; padding: 8px 12px; border-radius: 8px; max-width: 80%; word-wrap: break-word; }
         .msg-hp { background: #dcf8c6; margin-left: auto; text-align: right; }
         .msg-pc { background: #e3f2fd; margin-right: auto; text-align: left; }
-        textarea { width: 93%; height: 60px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; resize: none; }
-        button { padding: 12px 18px; font-size: 15px; font-weight: bold; margin: 8px 4px; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .msg-img { max-width: 100%; border-radius: 8px; margin-top: 5px; }
+        textarea { width: 93%; height: 50px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 14px; resize: none; }
+        button { padding: 10px 15px; font-size: 14px; font-weight: bold; margin: 4px 2px; border: none; border-radius: 8px; cursor: pointer; }
         .btn-send { background: #28a745; color: white; }
         .btn-mic { background: #007bff; color: white; }
-        .btn-send:hover { background: #218838; }
-        .btn-mic:hover { background: #0069d9; }
+        .btn-img { background: #ff9800; color: white; }
+        #fileInput { display: none; }
     </style>
 
-    <!-- Modul Firebase -->
+    <!-- Modul Firebase Realtime Database Only -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -40,12 +41,11 @@
             measurementId: "G-K0L42TXNZL"
         };
 
-        // Inisialisasi Firebase
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
         const messagesRef = ref(database, 'messages');
 
-        let currentRole = "HP"; // Default perangkat
+        let currentRole = "HP";
 
         window.setRole = function(role) {
             currentRole = role;
@@ -54,7 +54,7 @@
             alert("Perangkat ini diatur sebagai: " + role);
         };
 
-        // Kirim Pesan ke Firebase
+        // Kirim Teks
         window.sendMessage = function() {
             const input = document.getElementById('messageInput');
             const text = input.value.trim();
@@ -63,10 +63,47 @@
             push(messagesRef, {
                 sender: currentRole,
                 text: text,
+                type: 'text',
                 timestamp: Date.now()
             });
 
             input.value = '';
+        };
+
+        // Kirim Gambar (Kompres otomatis & Ubah ke Base64 agar GRATIS tanpa Storage)
+        window.uploadImage = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    // Kompresi Gambar agar ukuran kecil & tidak makan kuota DB
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 500;
+                    const scaleFactor = MAX_WIDTH / img.width;
+                    
+                    canvas.width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
+                    canvas.height = (img.width > MAX_WIDTH) ? (img.height * scaleFactor) : img.height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    // Konversi ke format JPEG berukuran ringan
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+
+                    // Kirim Teks Gambar ke Realtime Database
+                    push(messagesRef, {
+                        sender: currentRole,
+                        imageUrl: compressedBase64,
+                        type: 'image',
+                        timestamp: Date.now()
+                    });
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
         };
 
         // Mendengarkan Pesan Masuk secara Realtime
@@ -76,17 +113,26 @@
             
             const msgDiv = document.createElement('div');
             msgDiv.className = `msg ${data.sender === 'HP' ? 'msg-hp' : 'msg-pc'}`;
-            msgDiv.innerHTML = `<b>${data.sender}:</b> ${data.text}`;
+            
+            if (data.type === 'image') {
+                msgDiv.innerHTML = `<b>${data.sender}:</b><br><img src="${data.imageUrl}" class="msg-img" />`;
+            } else {
+                msgDiv.innerHTML = `<b>${data.sender}:</b> ${data.text}`;
+            }
+
             chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
 
-            // Jika pesan dikirim oleh perangkat LAIN, browser membacakannya keras-keras
+            // Membacakan pengumuman jika pesan dari perangkat lain
             if (data.sender !== currentRole) {
-                speakText(data.text);
+                if (data.type === 'image') {
+                    speakText(data.sender + " mengirimkan gambar.");
+                } else {
+                    speakText(data.text);
+                }
             }
         });
 
-        // Teks ke Suara (Text-to-Speech)
         function speakText(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
@@ -97,7 +143,6 @@
             }
         }
 
-        // Suara ke Teks (Voice-to-Text)
         window.startVoiceRecognition = function() {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
@@ -111,7 +156,7 @@
             recognition.onresult = function(event) {
                 const transcript = event.results[0][0].transcript;
                 document.getElementById('messageInput').value = transcript;
-                window.sendMessage(); // Otomatis terkirim setelah selesai bicara
+                window.sendMessage();
             };
         };
     </script>
@@ -121,16 +166,19 @@
 <div class="card">
     <h2>Komunikasi Rumah</h2>
     <div class="role-selector">
-        <label>Perangkat ini sebagai: </label><br><br>
         <button id="btnHP" class="role-btn role-active" onclick="setRole('HP')">📱 HP (Kamu)</button>
         <button id="btnPC" class="role-btn" onclick="setRole('PC')">💻 PC (Rumah)</button>
     </div>
     
     <div class="chat-box" id="chatBox"></div>
 
-    <textarea id="messageInput" placeholder="Ketik pesan atau tekan tombol bicara..."></textarea><br>
+    <textarea id="messageInput" placeholder="Ketik pesan..."></textarea><br>
     <button class="btn-send" onclick="sendMessage()">Kirim Pesan</button>
-    <button class="btn-mic" onclick="startVoiceRecognition()">🎤 Bicara (Suara)</button>
+    <button class="btn-mic" onclick="startVoiceRecognition()">🎤 Suara</button>
+    
+    <!-- Tombol Kirim Gambar -->
+    <button class="btn-img" onclick="document.getElementById('fileInput').click()">📷 Kirim Foto</button>
+    <input type="file" id="fileInput" accept="image/*" onchange="uploadImage(event)">
 </div>
 
 </body>
