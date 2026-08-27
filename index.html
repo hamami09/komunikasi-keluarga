@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Komunikasi Rumah & HP</title>
+    <title>OBROLAN KELUARGA BAHAGIA</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 15px; background: #eef2f5; }
         .card { background: white; max-width: 480px; margin: auto; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -21,13 +21,14 @@
         .btn-send { background: #28a745; color: white; }
         .btn-mic { background: #007bff; color: white; }
         .btn-img { background: #ff9800; color: white; }
+        .btn-clear { background: #dc3545; color: white; margin-top: 10px; width: 95%; }
         #fileInput { display: none; }
     </style>
 
-    <!-- Modul Firebase Realtime Database Only -->
+    <!-- Modul Firebase Realtime Database -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, push, onChildAdded, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         // KONFIGURASI FIREBASE KAMU
         const firebaseConfig = {
@@ -70,7 +71,7 @@
             input.value = '';
         };
 
-        // Kirim Gambar (Kompres otomatis & Ubah ke Base64 agar GRATIS tanpa Storage)
+        // Kirim Gambar (Base64)
         window.uploadImage = function(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -79,7 +80,6 @@
             reader.onload = function(e) {
                 const img = new Image();
                 img.onload = function() {
-                    // Kompresi Gambar agar ukuran kecil & tidak makan kuota DB
                     const canvas = document.createElement('canvas');
                     const MAX_WIDTH = 500;
                     const scaleFactor = MAX_WIDTH / img.width;
@@ -90,10 +90,8 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     
-                    // Konversi ke format JPEG berukuran ringan
                     const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
 
-                    // Kirim Teks Gambar ke Realtime Database
                     push(messagesRef, {
                         sender: currentRole,
                         imageUrl: compressedBase64,
@@ -105,6 +103,27 @@
             };
             reader.readAsDataURL(file);
         };
+
+        // Hapus Semua Pesan dari Firebase
+        window.clearChat = function() {
+            if (confirm("Apakah Anda yakin ingin menghapus semua riwayat pesan?")) {
+                remove(messagesRef)
+                    .then(() => {
+                        document.getElementById('chatBox').innerHTML = '';
+                        alert("Riwayat pesan berhasil dihapus!");
+                    })
+                    .catch((error) => {
+                        alert("Gagal menghapus pesan: " + error.message);
+                    });
+            }
+        };
+
+        // Pantau Perubahan Data (Termasuk jika data dihapus)
+        onValue(messagesRef, (snapshot) => {
+            if (!snapshot.exists()) {
+                document.getElementById('chatBox').innerHTML = '';
+            }
+        });
 
         // Mendengarkan Pesan Masuk secara Realtime
         onChildAdded(messagesRef, (snapshot) => {
@@ -123,7 +142,6 @@
             chatBox.appendChild(msgDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
 
-            // Membacakan pengumuman jika pesan dari perangkat lain
             if (data.sender !== currentRole) {
                 if (data.type === 'image') {
                     speakText(data.sender + " mengirimkan gambar.");
@@ -176,9 +194,12 @@
     <button class="btn-send" onclick="sendMessage()">Kirim Pesan</button>
     <button class="btn-mic" onclick="startVoiceRecognition()">🎤 Suara</button>
     
-    <!-- Tombol Kirim Gambar -->
     <button class="btn-img" onclick="document.getElementById('fileInput').click()">📷 Kirim Foto</button>
     <input type="file" id="fileInput" accept="image/*" onchange="uploadImage(event)">
+
+    <!-- Tombol Hapus Chat -->
+    <br>
+    <button class="btn-clear" onclick="clearChat()">🗑️ Hapus Semua Riwayat Chat</button>
 </div>
 
 </body>
