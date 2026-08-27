@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Komunikasi Rumah & HP</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background: #f4f6f9; }
+        .card { background: white; max-width: 500px; margin: auto; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        button { padding: 12px 20px; font-size: 16px; margin: 10px 5px; border: none; border-radius: 8px; cursor: pointer; }
+        .btn-send { background: #28a745; color: white; }
+        .btn-mic { background: #007bff; color: white; }
+        textarea { width: 90%; height: 80px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
+        .chat-box { height: 200px; overflow-y: scroll; border: 1px solid #eee; text-align: left; padding: 10px; margin-bottom: 10px; background: #fafafa; }
+        .msg-hp { color: green; font-weight: bold; }
+        .msg-pc { color: blue; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Pusat Komunikasi Keluarga</h2>
+    
+    <!-- Kotak Chat -->
+    <div class="chat-box" id="chatBox"></div>
+
+    <!-- Area Kirim Teks -->
+    <textarea id="messageInput" placeholder="Ketik pesan di sini..."></textarea><br>
+    <button class="btn-send" onclick="sendMessage()">Kirim Pesan</button>
+    <button class="btn-mic" onclick="startVoiceRecognition()">🎤 Bicara (Voice Note)</button>
+</div>
+
+<script>
+    // 1. Fitur Suara ke Teks (Untuk PC ke HP atau sebaliknya)
+    function startVoiceRecognition() {
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'id-ID';
+        recognition.start();
+
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById('messageInput').value = transcript;
+            sendMessage(); // Langsung kirim setelah selesai bicara
+        };
+    }
+
+    // 2. Fitur Teks ke Suara (PC membacakan pesan dari HP)
+    function speakText(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'id-ID';
+        utterance.pitch = 1;
+        utterance.rate = 1;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // 3. Simulasi Kirim Pesan (Nanti dihubungkan ke Firebase/Server)
+    function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value;
+        if (!text) return;
+
+        const chatBox = document.getElementById('chatBox');
+        chatBox.innerHTML += `<p class="msg-hp"><b>Pesan Sent:</b> ${text}</p>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        // Membunyikan suara di penerima
+        speakText(text);
+
+        input.value = '';
+    }
+</script>
+
+</body>
+</html>
